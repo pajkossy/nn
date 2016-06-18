@@ -46,6 +46,7 @@ class MLP(object):
     def train(self, X_all, y_all, it, b_size, learning_rate):
         j = 0
         for X, y in self.generate_minibatches(X_all, y_all, it, b_size):
+            actual_size_ratio = 1.0/X.shape[0]
             j += b_size
             # feedforward
             l1, l2 = self.feedforward(X)
@@ -53,8 +54,8 @@ class MLP(object):
             # backpropagation
             grad1, grad0 = self.backpropagate(l1, l2, X, y)
 
-            self.syn1 += learning_rate * grad1
-            self.syn0 += learning_rate * grad0
+            self.syn1 += learning_rate * actual_size_ratio * grad1
+            self.syn0 += learning_rate * actual_size_ratio * grad0
 
             if j > X_all.shape[0]:
                 self.report_accuracy(y, l2)
