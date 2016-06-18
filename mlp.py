@@ -11,6 +11,9 @@ def nonlin(x, deriv=False):
 
     return 1/(1+np.exp(-x))
 
+def softmax(x):
+    sm =  np.exp(x)/np.sum(np.exp(x), axis=1).reshape([x.shape[0], 1])
+    return sm
 
 class MLP(object):
 
@@ -29,12 +32,19 @@ class MLP(object):
     def feedforward(self, X):
         l0 = X
         l1 = nonlin(np.dot(l0, self.syn0))
-        l2 = nonlin(np.dot(l1, self.syn1))
+        if self.use_crossval_error:
+            l2 = softmax(np.dot(l1, self.syn1))
+        else:
+            l2 = nonlin(np.dot(l1, self.syn1))
         return l1, l2
 
     def backpropagate(self, l1, l2, X, y):
-        l2_error = y - l2
-        l2_delta = l2_error * nonlin(l2, deriv=True)
+
+        if self.use_crossval_error:
+            l2_delta = y - l2
+        else:
+            l2_error = y - l2
+            l2_delta = l2_error * nonlin(l2, deriv=True)
 
         l1_error = l2_delta.dot(self.syn1.T)
         l1_delta = l1_error * nonlin(l1, deriv=True)
@@ -43,7 +53,9 @@ class MLP(object):
         grad0 = X.T.dot(l1_delta)
         return grad1, grad0
 
-    def train(self, X_all, y_all, it, b_size, learning_rate):
+    def train(self, X_all, y_all, it, b_size, learning_rate,
+              use_crossval_error):
+        self.use_crossval_error = use_crossval_error
         j = 0
         for X, y in self.generate_minibatches(X_all, y_all, it, b_size):
             actual_size_ratio = 1.0/X.shape[0]
@@ -81,6 +93,7 @@ def read_args():
     parser.add_argument('-i', '--iterations', type=int)
     parser.add_argument('-l', '--learning_rate', type=float)
     parser.add_argument('-n', '--normalize', action='store_true')
+    parser.add_argument('-c', '--use_crossval_error', action='store_true')
     return parser.parse_args()
 
 
@@ -97,7 +110,8 @@ def main():
                   train_outs,
                   args.iterations,
                   args.batch_size,
-                  args.learning_rate)
+                  args.learning_rate,
+                  args.use_crossval_error)
     network.evaluate(test, test_outs)
 
 if __name__ == "__main__":
