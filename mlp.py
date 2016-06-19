@@ -2,7 +2,7 @@ import logging
 import numpy as np
 from argparse import ArgumentParser
 
-from utils import get_datasets, get_confusion_matrix
+from utils import get_datasets, get_confusion_matrix, plot_weights
 
 
 def logistic(x, deriv=False):
@@ -149,6 +149,7 @@ def read_args():
     parser.add_argument('-r', '--reg_lambda', type=float, default=0.0005)
     parser.add_argument('-c', '--cost', choices=['softmax', 'mse'],
                         default='softmax')
+    parser.add_argument('-p', '--plot_weights_fn', default='None')
     return parser.parse_args()
 
 
@@ -170,6 +171,8 @@ def main():
                   args.lr_decay_rate,
                   args.cost)
     network.evaluate(test, test_outs)
+    if args.plot_weights_fn:
+        plot_weights(network.W1, args.plot_weights_fn)
 
 if __name__ == "__main__":
     main()

@@ -2,6 +2,7 @@ from sklearn.datasets import fetch_mldata
 from sklearn import preprocessing
 import numpy as np
 import random
+import matplotlib.pyplot as plt
 
 
 def get_datasets():
@@ -41,3 +42,16 @@ def get_confusion_matrix(corr, pred):
         matrix[corr[i]][pred[i]] += 1
     np.set_printoptions(suppress=True)
     return matrix
+
+
+def plot_weights(W, fn):
+    fig, axes = plt.subplots(10, 10)
+    # use global min / max to ensure all weights are shown on the same scale
+    vmin, vmax = W.min(), W.max()
+    print W.shape, vmin, vmax
+    for coef, ax in zip(W.T, axes.ravel()):
+        ax.matshow(coef.reshape(28, 28), cmap=plt.cm.gray, vmin=.5 * vmin,
+                   vmax=.5 * vmax)
+        ax.set_xticks(())
+        ax.set_yticks(())
+    plt.savefig(fn)
