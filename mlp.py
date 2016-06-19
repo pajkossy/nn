@@ -19,9 +19,12 @@ def softmax(x):
     probs = probs_unnormalized / normalization
     return probs
 
+
 def calculate_lr(orig, lr_decay_rate, t):
     # exponential decay
-    return orig * np.exp(-t/lr_decay_rate) 
+    if lr_decay_rate == 0:
+        return orig
+    return orig * np.exp(-t/lr_decay_rate)
 
 
 class MLP(object):
@@ -135,14 +138,13 @@ class MLP(object):
 
 def read_args():
     parser = ArgumentParser()
-    parser.add_argument('-s', '--hidden', type=int)
-    parser.add_argument('-b', '--batch_size', type=int)
-    parser.add_argument('-i', '--iterations', type=int)
-    parser.add_argument('-l', '--learning_rate', type=float)
-    parser.add_argument('-d', '--lr_decay_rate', type=float)
-    parser.add_argument('-n', '--normalize', action='store_true')
+    parser.add_argument('-s', '--hidden', type=int, default=100)
+    parser.add_argument('-b', '--batch_size', type=int, default=20)
+    parser.add_argument('-i', '--iterations', type=int, default=10)
+    parser.add_argument('-l', '--learning_rate', type=float, default=0.1)
+    parser.add_argument('-d', '--lr_decay_rate', type=float, default=0)
     parser.add_argument('-c', '--use_crossval_error', action='store_true')
-    parser.add_argument('-r', '--reg_lambda', type=float, default=0.01)
+    parser.add_argument('-r', '--reg_lambda', type=float, default=0.0005)
     return parser.parse_args()
 
 
@@ -154,14 +156,14 @@ def main():
         "%(module)s (%(lineno)s) - %(levelname)s - %(message)s")
 
     network = MLP(784, args.hidden, 10)
-    train, train_outs, test, test_outs = get_datasets(args.normalize)
+    train, train_outs, test, test_outs = get_datasets()
     network.train(train,
                   train_outs,
                   args.iterations,
                   args.batch_size,
                   args.learning_rate,
                   args.use_crossval_error,
-                  args.reg_lambda, 
+                  args.reg_lambda,
                   args.lr_decay_rate)
     network.evaluate(test, test_outs)
 
