@@ -19,6 +19,10 @@ def softmax(x):
     probs = probs_unnormalized / normalization
     return probs
 
+def calculate_lr(orig, lr_decay_rate, t):
+    # exponential decay
+    return orig * np.exp(-t/lr_decay_rate) 
+
 
 class MLP(object):
 
@@ -74,14 +78,17 @@ class MLP(object):
                 dW2/mbatch_size,
                 dW1/mbatch_size)
 
-    def train(self, X_all, y_all, it, b_size, learning_rate,
-              use_crossval_error, reg_lambda):
+    def train(self, X_all, y_all, it, b_size, orig_learning_rate,
+              use_crossval_error, reg_lambda, lr_decay_rate):
 
         self.reg_lambda = reg_lambda
         self.use_crossval_error = use_crossval_error
         j = 0
+        t = -1.0
         for X, y in self.generate_minibatches(X_all, y_all, it, b_size):
-
+            t += 1
+            learning_rate = calculate_lr(
+                orig_learning_rate, lr_decay_rate, t)
             j += b_size
             # feedforward
             a1, a2 = self.feedforward(X)
@@ -104,6 +111,7 @@ class MLP(object):
 
             if j > X_all.shape[0]:
                 self.report_accuracy(y, a2)
+                logging.info('Learning rate: {}'.format(learning_rate))
 
                 j = 0
 
@@ -131,6 +139,7 @@ def read_args():
     parser.add_argument('-b', '--batch_size', type=int)
     parser.add_argument('-i', '--iterations', type=int)
     parser.add_argument('-l', '--learning_rate', type=float)
+    parser.add_argument('-d', '--lr_decay_rate', type=float)
     parser.add_argument('-n', '--normalize', action='store_true')
     parser.add_argument('-c', '--use_crossval_error', action='store_true')
     parser.add_argument('-r', '--reg_lambda', type=float, default=0.01)
@@ -152,7 +161,8 @@ def main():
                   args.batch_size,
                   args.learning_rate,
                   args.use_crossval_error,
-                  args.reg_lambda)
+                  args.reg_lambda, 
+                  args.lr_decay_rate)
     network.evaluate(test, test_outs)
 
 if __name__ == "__main__":
