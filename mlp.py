@@ -47,10 +47,7 @@ class MLP(object):
         z1 = np.dot(X, self.W1) + self.b1
         a1 = logistic(z1)
         z2 = np.dot(a1, self.W2) + self.b2
-        if self.use_crossval_error:
-            a2 = softmax(z2)
-        else:
-            a2 = logistic(z2)
+        a2 = self.nonlin(z2)
         return a1, a2
 
     def backpropagate(self, a1, a2, X, y):
@@ -59,13 +56,7 @@ class MLP(object):
         dE/d_output of layer {index}: error_dout_{index}
         dE/d_input of layer {index}: delta_{index}
         '''
-        if self.use_crossval_error:
-            probs = a2
-            delta_2 = probs - y
-        else:
-            error_dout_2 = a2 - y
-            delta_2 = error_dout_2 * logistic_deriv_by_value(a2)
-
+        delta_2 = self.get_delta(a2, y)
         error_dout_1 = delta_2.dot(self.W2.T)
         delta_1 = error_dout_1 * logistic_deriv_by_value(a1)
 
@@ -75,6 +66,13 @@ class MLP(object):
         db1 = np.sum(delta_1, axis=0)
         return db2, db1, dW2, dW1
 
+    def get_softmax_delta(self, a2, y):
+        return a2 - y
+
+    def get_mse_delta(self, a2, y):
+        error_dout_2 = a2 - y
+        return error_dout_2 * logistic_deriv_by_value(a2)
+
     def normalize_gradients(self, db2, db1, dW2, dW1, mbatch_size):
         return (db2/mbatch_size,
                 db1/mbatch_size,
@@ -82,10 +80,15 @@ class MLP(object):
                 dW1/mbatch_size)
 
     def train(self, X_all, y_all, it, b_size, orig_learning_rate,
-              use_crossval_error, reg_lambda, lr_decay_rate):
+              reg_lambda, lr_decay_rate, cost):
 
         self.reg_lambda = reg_lambda
-        self.use_crossval_error = use_crossval_error
+        if cost == 'softmax':
+            self.get_delta = self.get_softmax_delta
+            self.nonlin = softmax
+        elif cost == 'mse':
+            self.get_delta = self.get_mse_delta
+            self.nonlin = logistic
         j = 0
         t = -1.0
         for X, y in self.generate_minibatches(X_all, y_all, it, b_size):
@@ -143,8 +146,9 @@ def read_args():
     parser.add_argument('-i', '--iterations', type=int, default=10)
     parser.add_argument('-l', '--learning_rate', type=float, default=0.1)
     parser.add_argument('-d', '--lr_decay_rate', type=float, default=0)
-    parser.add_argument('-c', '--use_crossval_error', action='store_true')
     parser.add_argument('-r', '--reg_lambda', type=float, default=0.0005)
+    parser.add_argument('-c', '--cost', choices=['softmax', 'mse'],
+                        default='softmax')
     return parser.parse_args()
 
 
@@ -162,9 +166,9 @@ def main():
                   args.iterations,
                   args.batch_size,
                   args.learning_rate,
-                  args.use_crossval_error,
                   args.reg_lambda,
-                  args.lr_decay_rate)
+                  args.lr_decay_rate,
+                  args.cost)
     network.evaluate(test, test_outs)
 
 if __name__ == "__main__":
