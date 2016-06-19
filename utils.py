@@ -1,5 +1,4 @@
 from sklearn.datasets import fetch_mldata
-from sklearn import preprocessing
 import numpy as np
 import random
 import matplotlib.pyplot as plt
@@ -11,7 +10,9 @@ def get_datasets():
     data = mnist['data']
     target = mnist['target']
 
-    data = preprocessing.scale(data)
+    data = (data - data.mean(axis=0))
+    std = data.std(axis=0)
+    data[:, std > 0] /= std[std > 0]
 
     train_ordered = data[:60000]
     train_labels_ordered = target[:60000]
