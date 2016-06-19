@@ -4,14 +4,13 @@ import numpy as np
 import random
 
 
-def get_datasets(normalize=False):
+def get_datasets():
 
     mnist = fetch_mldata('MNIST original')
     data = mnist['data']
     target = mnist['target']
 
-    if normalize:
-        data = preprocessing.scale(data)
+    data = preprocessing.scale(data)
 
     train_ordered = data[:60000]
     train_labels_ordered = target[:60000]
