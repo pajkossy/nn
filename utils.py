@@ -48,7 +48,6 @@ def plot_weights(W, fn):
     fig, axes = plt.subplots(10, 10)
     # use global min / max to ensure all weights are shown on the same scale
     vmin, vmax = W.min(), W.max()
-    print W.shape, vmin, vmax
     for coef, ax in zip(W.T, axes.ravel()):
         ax.matshow(coef.reshape(28, 28), cmap=plt.cm.gray, vmin=.5 * vmin,
                    vmax=.5 * vmax)
