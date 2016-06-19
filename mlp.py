@@ -116,9 +116,8 @@ class MLP(object):
 
             if (t + 1) * b_size % X_all.shape[0] == 0:
                 epoch += 1
-                logging.info('Epoch {} done, learning rate: {}'\
+                logging.info('Epoch {} done, learning rate: {}'
                              .format(epoch, learning_rate))
-
 
     def report_accuracy(self, y, a2, test=False):
         corr = np.argmax(a2, axis=1)
@@ -128,7 +127,6 @@ class MLP(object):
         logging.info("Correctly classified: {}%".format(
             ratio * 100))
         logging.info("Confusion matrix:\n{}".format(confusion_matrix))
-
 
     def evaluate(self, test, test_outs):
         _, a2 = self.feedforward(test)
