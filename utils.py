@@ -14,23 +14,26 @@ def get_datasets():
     std = data.std(axis=0)
     data[:, std > 0] /= std[std > 0]
 
-    train_ordered = data[:60000]
-    train_labels_ordered = target[:60000]
+    train_split = 60000
+    output_size = 10
+
+    train_ordered = data[:train_split]
+    train_labels_ordered = target[:train_split]
     training_data = zip(train_ordered, train_labels_ordered)
     random.shuffle(training_data)
     train = np.array([p[0] for p in training_data])
     train_labels = np.array([p[1] for p in training_data])
 
-    train_outs = np.array([output_list(i, 10)
+    train_outs = np.array([one_hot(i, output_size)
                            for i in train_labels])
-    test = data[60001:]
-    test_labels = target[60001:]
-    test_outs = np.array([output_list(i, 10)
+    test = data[train_split:]
+    test_labels = target[train_split:]
+    test_outs = np.array([one_hot(i, output_size)
                           for i in test_labels])
     return train, train_outs, test, test_outs
 
 
-def output_list(index, size):
+def one_hot(index, size):
     array = [0 for i in xrange(size)]
     array[int(index)] = 1
     return array
