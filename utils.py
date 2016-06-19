@@ -1,7 +1,6 @@
 from sklearn.datasets import fetch_mldata
 import numpy as np
 import random
-import matplotlib.pyplot as plt
 
 
 def get_datasets():
@@ -49,7 +48,8 @@ def get_confusion_matrix(corr, pred):
 
 
 def plot_weights(W, fn):
-    fig, axes = plt.subplots(10, 10)
+    import matplotlib.pyplot as plt
+    fig, axes = plt.subplots(10, 10, figsize=(15, 10))
     # use global min / max to ensure all weights are shown on the same scale
     vmin, vmax = W.min(), W.max()
     for coef, ax in zip(W.T, axes.ravel()):
@@ -57,4 +57,7 @@ def plot_weights(W, fn):
                    vmax=.5 * vmax)
         ax.set_xticks(())
         ax.set_yticks(())
-    plt.savefig(fn)
+    if fn is not None:
+        plt.savefig(fn)
+    else:
+        plt.show()
