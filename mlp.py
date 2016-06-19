@@ -22,7 +22,7 @@ def softmax(x):
 
 def calculate_lr(orig, lr_decay_rate, t):
     # exponential decay
-    if lr_decay_rate == 0:
+    if lr_decay_rate is None:
         return orig
     return orig * np.exp(-t/lr_decay_rate)
 
@@ -127,10 +127,13 @@ class MLP(object):
         logging.info("Correctly classified: {}%".format(
             ratio * 100))
         logging.info("Confusion matrix:\n{}".format(confusion_matrix))
+        return ratio, confusion_matrix
 
     def evaluate(self, test, test_outs):
         _, a2 = self.feedforward(test)
-        self.report_accuracy(test_outs, a2, test=True)
+        ratio, confusion_matrix = self.report_accuracy(
+            test_outs, a2, test=True)
+        return ratio, confusion_matrix
 
 
 def read_args():
@@ -139,7 +142,7 @@ def read_args():
     parser.add_argument('-b', '--batch_size', type=int, default=20)
     parser.add_argument('-i', '--iterations', type=int, default=10)
     parser.add_argument('-l', '--learning_rate', type=float, default=0.1)
-    parser.add_argument('-d', '--lr_decay_rate', type=float, default=0)
+    parser.add_argument('-d', '--lr_decay_rate', type=float, default=None)
     parser.add_argument('-r', '--reg_lambda', type=float, default=0.0005)
     parser.add_argument('-c', '--cost', choices=['softmax', 'mse'],
                         default='softmax')
