@@ -5,26 +5,30 @@ from argparse import ArgumentParser
 from utils import get_datasets, get_confusion_matrix
 
 
-def nonlin(x, deriv=False):
-    if(deriv is True):
-        return x*(1-x)
-
+def logistic(x, deriv=False):
     return 1/(1+np.exp(-x))
 
+
+def logistic_deriv_by_value(f_x):
+    return f_x * (1-f_x)
+
+
 def softmax(x):
-    sm =  np.exp(x)/np.sum(np.exp(x), axis=1).reshape([x.shape[0], 1])
-    return sm
+    probs_unnormalized = np.exp(x)
+    normalization = np.sum(np.exp(x), axis=1, keepdims=True)
+    probs = probs_unnormalized / normalization
+    return probs
+
 
 class MLP(object):
 
     def __init__(self, input_, hidden, output):
         np.random.seed(1)
         self.output = output
-        self.syn0 = 2*np.random.random((input_, hidden)) - 1
-        self.syn1 = 2*np.random.random((hidden, output)) - 1
-        self.bias0 = (2*np.random.random((hidden, 1)) - 1).T
-        self.bias1 = (2*np.random.random((output, 1)) - 1).T
-
+        self.W1 = 2 * np.random.random((input_, hidden)) - 1
+        self.W2 = 2 * np.random.random((hidden, output)) - 1
+        self.b1 = (2 * np.random.random((1, hidden)) - 1)
+        self.b2 = (2 * np.random.random((1, output)) - 1)
 
     def generate_minibatches(self, X_all, y_all, it, b_size):
         for i in xrange(it):
@@ -33,75 +37,92 @@ class MLP(object):
                         y_all[j*b_size:(j+1)*b_size]
 
     def feedforward(self, X):
-        l0 = X
-        l1 = nonlin(np.dot(l0, self.syn0) + self.bias0)
+        z1 = np.dot(X, self.W1) + self.b1
+        a1 = logistic(z1)
+        z2 = np.dot(a1, self.W2) + self.b2
         if self.use_crossval_error:
-            l2 = softmax(np.dot(l1, self.syn1) + self.bias1)
+            a2 = softmax(z2)
         else:
-            l2 = nonlin(np.dot(l1, self.syn1) + self.bias1)
-        return l1, l2
+            a2 = logistic(z2)
+        return a1, a2
 
-    def backpropagate(self, l1, l2, X, y):
-
+    def backpropagate(self, a1, a2, X, y):
+        '''
+        notation:
+        dE/d_output of layer {index}: error_dout_{index}
+        dE/d_input of layer {index}: delta_{index}
+        '''
         if self.use_crossval_error:
-            l2_delta = y - l2
+            probs = a2
+            delta_2 = probs - y
         else:
-            l2_error = y - l2
-            l2_delta = l2_error * nonlin(l2, deriv=True)
+            error_dout_2 = a2 - y
+            delta_2 = error_dout_2 * logistic_deriv_by_value(a2)
 
-        l1_error = l2_delta.dot(self.syn1.T)
-        l1_delta = l1_error * nonlin(l1, deriv=True)
+        error_dout_1 = delta_2.dot(self.W2.T)
+        delta_1 = error_dout_1 * logistic_deriv_by_value(a1)
 
-        grad1 = l1.T.dot(l2_delta)
-        grad0 = X.T.dot(l1_delta)
-        gradb1 = np.sum(l2_delta, axis=0)
-        gradb0 = np.sum(l1_delta, axis=0)
-        return gradb1, gradb0, grad1, grad0
+        dW2 = a1.T.dot(delta_2)
+        dW1 = X.T.dot(delta_1)
+        db2 = np.sum(delta_2, axis=0)
+        db1 = np.sum(delta_1, axis=0)
+        return db2, db1, dW2, dW1
+
+    def normalize_gradients(self, db2, db1, dW2, dW1, mbatch_size):
+        return (db2/mbatch_size,
+                db1/mbatch_size,
+                dW2/mbatch_size,
+                dW1/mbatch_size)
 
     def train(self, X_all, y_all, it, b_size, learning_rate,
-              use_crossval_error, regularization):
-        
-        self.regularization = regularization
+              use_crossval_error, reg_lambda):
+
+        self.reg_lambda = reg_lambda
         self.use_crossval_error = use_crossval_error
         j = 0
         for X, y in self.generate_minibatches(X_all, y_all, it, b_size):
-            actual_size_ratio = 1.0/X.shape[0]
+
             j += b_size
             # feedforward
-            l1, l2 = self.feedforward(X)
+            a1, a2 = self.feedforward(X)
 
             # backpropagation
-            gradb1, gradb0, grad1, grad0 = self.backpropagate(l1, l2, X, y)
+            db2, db1, dW2, dW1 = self.backpropagate(a1, a2, X, y)
 
-            #regularization 
-            grad1 -= self.regularization * self.syn1
-            grad0 -= self.regularization * self.syn0
+            # normalize by minibatch size
+            db2, db1, dW2, dW1 = self.normalize_gradients(
+                db2, db1, dW2, dW1, X.shape[0])
 
-            self.syn1 += learning_rate * actual_size_ratio * grad1
-            self.syn0 += learning_rate * actual_size_ratio * grad0
-            self.bias1 += learning_rate * actual_size_ratio * gradb1
-            self.bias0 += learning_rate * actual_size_ratio * gradb0
+            # add regularization term to weight updates
+            dW2 += self.reg_lambda * self.W2
+            dW1 += self.reg_lambda * self.W1
+
+            self.W2 -= learning_rate * dW2
+            self.W1 -= learning_rate * dW1
+            self.b2 -= learning_rate * db2
+            self.b1 -= learning_rate * db1
 
             if j > X_all.shape[0]:
-                self.report_accuracy(y, l2)
+                self.report_accuracy(y, a2)
 
                 j = 0
 
-    def report_accuracy(self, y, l2, test=False):
-        corr = np.argmax(l2, axis=1)
+    def report_accuracy(self, y, a2, test=False):
+        corr = np.argmax(a2, axis=1)
         pred = np.argmax(y, axis=1)
         ratio = float(sum(corr == pred))/y.shape[0]
         confusion_matrix = get_confusion_matrix(corr, pred)
         if test:
-            data = 'train'
-        else:
             data = 'test'
-        logging.info("Correctly classified: {} % on {}".format(ratio * 100, data))
+        else:
+            data = 'train'
+        logging.info("Correctly classified: {} % on {}".format(
+            ratio * 100, data))
         logging.info("Confusion matrix:\n{}".format(confusion_matrix))
 
     def evaluate(self, test, test_outs):
-        _, l2 = self.feedforward(test)
-        self.report_accuracy(test_outs, l2, test=True)
+        _, a2 = self.feedforward(test)
+        self.report_accuracy(test_outs, a2, test=True)
 
 
 def read_args():
@@ -112,7 +133,7 @@ def read_args():
     parser.add_argument('-l', '--learning_rate', type=float)
     parser.add_argument('-n', '--normalize', action='store_true')
     parser.add_argument('-c', '--use_crossval_error', action='store_true')
-    parser.add_argument('-r', '--regularization', type=float, default=0.01)
+    parser.add_argument('-r', '--reg_lambda', type=float, default=0.01)
     return parser.parse_args()
 
 
@@ -131,7 +152,7 @@ def main():
                   args.batch_size,
                   args.learning_rate,
                   args.use_crossval_error,
-                  args.regularization)
+                  args.reg_lambda)
     network.evaluate(test, test_outs)
 
 if __name__ == "__main__":
