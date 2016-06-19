@@ -89,13 +89,12 @@ class MLP(object):
         elif cost == 'mse':
             self.get_delta = self.get_mse_delta
             self.nonlin = logistic
-        j = 0
+        epoch = 0
         t = -1.0
         for X, y in self.generate_minibatches(X_all, y_all, it, b_size):
             t += 1
             learning_rate = calculate_lr(
                 orig_learning_rate, lr_decay_rate, t)
-            j += b_size
             # feedforward
             a1, a2 = self.feedforward(X)
 
@@ -115,24 +114,21 @@ class MLP(object):
             self.b2 -= learning_rate * db2
             self.b1 -= learning_rate * db1
 
-            if j > X_all.shape[0]:
-                self.report_accuracy(y, a2)
-                logging.info('Learning rate: {}'.format(learning_rate))
+            if (t + 1) * b_size % X_all.shape[0] == 0:
+                epoch += 1
+                logging.info('Epoch {} done, learning rate: {}'\
+                             .format(epoch, learning_rate))
 
-                j = 0
 
     def report_accuracy(self, y, a2, test=False):
         corr = np.argmax(a2, axis=1)
         pred = np.argmax(y, axis=1)
         ratio = float(sum(corr == pred))/y.shape[0]
         confusion_matrix = get_confusion_matrix(corr, pred)
-        if test:
-            data = 'test'
-        else:
-            data = 'train'
-        logging.info("Correctly classified: {} % on {}".format(
-            ratio * 100, data))
+        logging.info("Correctly classified: {}%".format(
+            ratio * 100))
         logging.info("Confusion matrix:\n{}".format(confusion_matrix))
+
 
     def evaluate(self, test, test_outs):
         _, a2 = self.feedforward(test)
@@ -173,6 +169,7 @@ def main():
     network.evaluate(test, test_outs)
     if args.plot_weights_fn:
         plot_weights(network.W1, args.plot_weights_fn)
+        logging.info('Weights plotted to {}'.format(args.plot_weights_fn))
 
 if __name__ == "__main__":
     main()
